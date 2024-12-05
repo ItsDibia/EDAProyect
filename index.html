@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analizador de Datos Estadísticos Avanzado</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/simple-statistics@7.7.0/dist/simple-statistics.min.js"></script>
+    <style>
+        body {
+            font-family: 'Roboto', Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #eef2f7; /* Light blue */
+            line-height: 1.8;
+            color: #1f2937; /* Dark gray-blue for text */
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); /* Soft shadow */
+        }
+        h1 {
+            font-size: 2.2rem;
+            color: #1e40af; /* Darker blue */
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #93c5fd; /* Subtle blue accent */
+            padding-bottom: 10px;
+        }
+        #error-container {
+            background-color: #f0f4fc; /* Soft blue tint */
+            color: #1e3a8a; /* Darker blue for contrast */
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #bfdbfe; /* Soft border */
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            display: none;
+        }
+        #file-input-container {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        #file-input {
+            display: none;
+        }
+        .file-input-label {
+            background-color: #2563eb; /* Blue button */
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1rem;
+            text-align: center;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+        .file-input-label:hover {
+            background-color: #1e40af; /* Darker blue on hover */
+            transform: translateY(-2px); /* Slight lift */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Soft shadow */
+        }
+        #columns-select {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin: 20px 0;
+        }
+        .column-checkbox {
+            display: flex;
+            align-items: center;
+            background-color: #f1f5f9; /* Light gray-blue */
+            padding: 10px 14px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            color: #1f2937; /* Dark gray-blue for readability */
+            border: 1px solid #d1d5db; /* Subtle border for contrast */
+        }
+        #stats-container, #charts-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .stat-card, .chart-card {
+            background-color: #f8fafc; /* Very light blue */
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); /* Subtle shadow */
+            position: relative;
+            color: #1f2937; /* Text color for consistency */
+        }
+        .export-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: #10b981; /* Green for positive action */
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            font-style: italic;
+            color: #1f2937; /* Subtle text */
+            background-color: #eef2f7; /* Matches body */
+            border-radius: 6px;
+        }
+        .scrollable-content {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 10px;
+            border: 1px solid #d1d5db; /* Subtle border */
+            border-radius: 6px;
+            padding: 10px;
+            background-color: #ffffff; /* White for content contrast */
+        }
+        .categorical-summary {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+            color: #1e3a8a; /* Dark blue accent */
+        }
+        #clear-btn {
+            background-color: #ef4444; /* Red button */
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+        #clear-btn:hover {
+            background-color: #b91c1c; /* Darker red on hover */
+            transform: translateY(-2px); /* Slight lift */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Soft shadow */
+        }
+        .chart-card {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .chart-card canvas {
+            max-height: 400px;
+        }
+        .pagination {
+            display: flex;
+            justify-content: center;
+            margin-top: 15px;
+        }
+        .pagination button {
+            margin: 0 8px;
+            padding: 8px 12px;
+            background-color: #3b82f6; /* Strong blue */
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+        .pagination button:disabled {
+            background-color: #d1d5db; /* Muted color for disabled state */
+            cursor: not-allowed;
+        }
+    </style>
+    
+</head>
+<body>
+    <div class="container">
+        <h1>Analizador estadistico de datos [Procedimiento de EDA]</h1>
+        
+        <div id="error-container"></div>
+        
+        <div id="file-input-container">
+            <input type="file" id="file-input" accept=".csv,.xlsx,.xls">
+            <label for="file-input" class="file-input-label">
+                📂 Seleccionar Archivo
+            </label>
+            <button id="clear-btn" style="display:none;">Limpiar Análisis</button>
+        </div>
+        
+        <div class="loading" id="loading-spinner">
+            🔄 Esperando archivo...
+        </div>
+        
+        <div id="columns-select"></div>
+        
+        <div id="stats-container"></div>
+        
+        <div id="charts-container"></div>
+    </div>
+
+    <script>
+        // Variables globales
+        let parsedData = [];
+        let headers = [];
+        let selectedColumns = new Set();
+
+        const errorContainer = document.getElementById('error-container');
+        const fileInput = document.getElementById('file-input');
+        const clearBtn = document.getElementById('clear-btn');
+        const loadingSpinner = document.getElementById('loading-spinner');
+
+        // Manejo de errores
+        function showError(message) {
+            errorContainer.textContent = message;
+            errorContainer.style.display = 'block';
+            loadingSpinner.style.display = 'none';
+        }
+
+        function clearErrors() {
+            errorContainer.textContent = '';
+            errorContainer.style.display = 'none';
+        }
+
+        // Procesamiento de archivos
+        fileInput.addEventListener('change', function(e) {
+            clearErrors();
+            loadingSpinner.style.display = 'block';
+
+            const file = e.target.files[0];
+            if (!file) {
+                showError('No se ha seleccionado ningún archivo');
+                return;
+            }
+
+            const fileExtension = file.name.split('.').pop().toLowerCase();
+            const allowedExtensions = ['csv', 'xlsx', 'xls'];
+
+            if (!allowedExtensions.includes(fileExtension)) {
+                showError('Formato de archivo no soportado. Use CSV, XLSX o XLS');
+                return;
+            }
+
+            try {
+                if (fileExtension === 'csv') {
+                    parseCsvFile(file);
+                } else {
+                    parseExcelFile(file);
+                }
+            } catch (error) {
+                showError(`Error al procesar archivo: ${error.message}`);
+            }
+        });
+
+        function parseCsvFile(file) {
+            Papa.parse(file, {
+                complete: function(results) {
+                    headers = results.data[0];
+                    parsedData = results.data.slice(1).map(row => 
+                        row.reduce((acc, val, idx) => {
+                            acc[headers[idx]] = val;
+                            return acc;
+                        }, {})
+                    );
+                    generateColumnSelectors();
+                }
+            });
+        }
+
+        function parseExcelFile(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const workbook = XLSX.read(e.target.result, {type: 'binary'});
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                const jsonData = XLSX.utils.sheet_to_json(worksheet);
+                
+                headers = Object.keys(jsonData[0]);
+                parsedData = jsonData;
+                generateColumnSelectors();
+            };
+            reader.readAsBinaryString(file);
+        }
+
+        // Limpiar análisis
+        clearBtn.addEventListener('click', function() {
+            parsedData = [];
+            headers = [];
+            selectedColumns.clear();
+            
+            document.getElementById('columns-select').innerHTML = '';
+            document.getElementById('stats-container').innerHTML = '';
+            document.getElementById('charts-container').innerHTML = '';
+            
+            fileInput.value = '';
+            clearBtn.style.display = 'none';
+        });
+
+        // Generación de selectores
+        function generateColumnSelectors() {
+            const columnsSelect = document.getElementById('columns-select');
+            columnsSelect.innerHTML = '';
+            
+            headers.forEach(header => {
+                const columnDiv = document.createElement('div');
+                columnDiv.className = 'column-checkbox';
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = header;
+                checkbox.name = header;
+                
+                const label = document.createElement('label');
+                label.htmlFor = header;
+                label.textContent = header;
+                
+                columnDiv.appendChild(checkbox);
+                columnDiv.appendChild(label);
+                columnsSelect.appendChild(columnDiv);
+                
+                checkbox.addEventListener('change', (e) => {
+                    if (e.target.checked) {
+                        selectedColumns.add(header);
+                        analyzeColumn(header);
+                    } else {
+                        selectedColumns.delete(header);
+                        removeColumnAnalysis(header);
+                    }
+                });
+            });
+
+            clearBtn.style.display = 'block';
+            loadingSpinner.style.display = 'none';
+        }
+
+        // Remover análisis de columna
+        function removeColumnAnalysis(columnName) {
+            const statsElement = document.getElementById(`stats-${columnName}`);
+            const chartElement = document.getElementById(`chart-${columnName}`);
+            
+            if (statsElement) statsElement.remove();
+            if (chartElement) chartElement.remove();
+        }
+
+        // Detección de tipos de datos
+        function detectDataType(values) {
+            const isNumeric = values.every(val => !isNaN(parseFloat(val)) && isFinite(val));
+            const isDate = values.every(val => !isNaN(Date.parse(val)));
+            
+            if (isNumeric) return 'numeric';
+            if (isDate) return 'datetime';
+            return 'categorical';
+        }
+
+        // Análisis estadístico
+        function analyzeColumn(columnName) {
+            const columnValues = parsedData.map(row => row[columnName]).filter(val => val !== null && val !== undefined);
+            const dataType = detectDataType(columnValues);
+            
+            const statsContainer = document.getElementById('stats-container');
+            const chartsContainer = document.getElementById('charts-container');
+            
+            // Limpiar análisis anterior de esta columna
+            const existingStats = document.getElementById(`stats-${columnName}`);
+            const existingChart = document.getElementById(`chart-${columnName}`);
+            if (existingStats) existingStats.remove();
+            if (existingChart) existingChart.remove();
+
+            // Análisis según tipo de dato
+            switch(dataType) {
+                case 'numeric':
+                    analyzeNumericColumn(columnName, columnValues, statsContainer, chartsContainer);
+                    break;
+                case 'datetime':
+                    analyzeDateTimeColumn(columnName, columnValues, statsContainer, chartsContainer);
+                    break;
+                default:
+                    analyzeCategoricalColumn(columnName, columnValues, statsContainer, chartsContainer);
+            }
+        }
+
+        function analyzeNumericColumn(columnName, values, statsContainer, chartsContainer) {
+            const numericValues = values.map(parseFloat);
+            
+            const statCard = document.createElement('div');
+            statCard.id = `stats-${columnName}`;
+            statCard.className = 'stat-card';
+            statCard.innerHTML = `<h3>Estadísticas de ${columnName}</h3>`;
+            
+            const stats = [
+                `Media: ${ss.mean(numericValues).toFixed(2)}`,
+                `Mediana: ${ss.median(numericValues).toFixed(2)}`,
+                `Desviación Estándar: ${ss.standardDeviation(numericValues).toFixed(2)}`,
+                `Mínimo: ${ss.min(numericValues)}`,
+                `Máximo: ${ss.max(numericValues)}`,
+                `Varianza: ${ss.variance(numericValues).toFixed(2)}`,
+                `Skewness: ${ss.sampleSkewness(numericValues).toFixed(2)}`,
+                `Kurtosis: ${ss.sampleKurtosis(numericValues).toFixed(2)}`,
+                `Rango: ${(ss.max(numericValues) - ss.min(numericValues)).toFixed(2)}`,
+                `Coeficiente de Variación: ${(ss.standardDeviation(numericValues) / ss.mean(numericValues)).toFixed(4)}`,
+                `Percentil 25: ${ss.quantile(numericValues, 0.25).toFixed(2)}`,
+                `Percentil 75: ${ss.quantile(numericValues, 0.75).toFixed(2)}`,
+                `Rango Intercuartílico: ${(ss.quantile(numericValues, 0.75) - ss.quantile(numericValues, 0.25)).toFixed(2)}`
+            ];
+            
+            stats.forEach(stat => {
+                const statEl = document.createElement('p');
+                statEl.textContent = stat;
+                statCard.appendChild(statEl);
+            });
+            
+            statsContainer.appendChild(statCard);
+
+            // Gráficos de columna numérica
+            const chartCard = document.createElement('div');
+            chartCard.id = `chart-${columnName}`;
+            chartCard.className = 'chart-card';
+            
+            const histogramCanvas = document.createElement('canvas');
+            histogramCanvas.id = `histogram-${columnName}`;
+            chartCard.appendChild(histogramCanvas);
+
+            const boxplotCanvas = document.createElement('canvas');
+            boxplotCanvas.id = `boxplot-${columnName}`;
+            chartCard.appendChild(boxplotCanvas);
+
+            chartsContainer.appendChild(chartCard);
+
+            // Histograma
+            new Chart(histogramCanvas, {
+                type: 'bar',
+                data: {
+                    labels: ss.histogram(numericValues, 10).map((bin, i) => `Rango ${i+1}`),
+                    datasets: [{
+                        label: 'Frecuencia',
+                        data: ss.histogram(numericValues, 10),
+                        backgroundColor: 'rgba(75, 192, 192, 0.6)'
+                    }]
+                },
+                options: { 
+                    responsive: true, 
+                    title: { display: true, text: `Histograma de ${columnName}` },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Frecuencia'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Rangos'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Boxplot
+            const boxplotData = {
+                min: ss.min(numericValues),
+                q1: ss.quantile(numericValues, 0.25),
+                median: ss.median(numericValues),
+                q3: ss.quantile(numericValues, 0.75),
+                max: ss.max(numericValues)
+            };
+
+            new Chart(boxplotCanvas, {
+                type: 'boxplot',
+                data: {
+                    labels: [columnName],
+                    datasets: [{
+                        label: 'Boxplot',
+                        data: [boxplotData],
+                        backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1,
+                        outlierColor: '#999999',
+                        padding: 10,
+                        itemRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    title: { display: true, text: `Boxplot de ${columnName}` },
+                    legend: { display: false }
+                }
+            });
+        }
+
+        function analyzeDateTimeColumn(columnName, values, statsContainer, chartsContainer) {
+            const dates = values.map(val => new Date(val));
+            dates.sort((a, b) => a - b);
+            
+            const statCard = document.createElement('div');
+            statCard.id = `stats-${columnName}`;
+            statCard.className = 'stat-card';
+            statCard.innerHTML = `<h3>Análisis de Fecha/Tiempo: ${columnName}</h3>`;
+            
+            const stats = [
+                `Fecha Más Antigua: ${dates[0].toLocaleDateString()}`,
+                `Fecha Más Reciente: ${dates[dates.length - 1].toLocaleDateString()}`,
+                `Total de Registros: ${dates.length}`,
+                `Rango de Fechas: ${Math.ceil((dates[dates.length - 1] - dates[0]) / (1000 * 60 * 60 * 24))} días`,
+                `Moda: ${calculateMode(dates).toLocaleDateString()}`,
+                `Mediana: ${calculateMedian(dates).toLocaleDateString()}`
+            ];
+            
+            stats.forEach(stat => {
+                const statEl = document.createElement('p');
+                statEl.textContent = stat;
+                statCard.appendChild(statEl);
+            });
+            
+            statsContainer.appendChild(statCard);
+
+            // Gráfico de línea temporal
+            const chartCard = document.createElement('div');
+            chartCard.id = `chart-${columnName}`;
+            chartCard.className = 'chart-card';
+            
+            const canvas = document.createElement('canvas');
+            canvas.id = `chart-${columnName}-element`;
+            chartCard.appendChild(canvas);
+            chartsContainer.appendChild(chartCard);
+
+            // Gráfico de distribución por año/mes
+            const dateCountMap = new Map();
+            dates.forEach(date => {
+                const key = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+                dateCountMap.set(key, (dateCountMap.get(key) || 0) + 1);
+            });
+
+            const sortedDates = Array.from(dateCountMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+
+            new Chart(canvas, {
+                type: 'line',
+                data: {
+                    labels: sortedDates.map(([date]) => date),
+                    datasets: [{
+                        label: 'Cantidad de registros',
+                        data: sortedDates.map(([, count]) => count),
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        tension: 0.1
+                    }]
+                },
+                options: { 
+                    responsive: true, 
+                    title: { display: true, text: `Distribución Temporal de ${columnName}` },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Cantidad de registros'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Fecha (Año-Mes)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function analyzeCategoricalColumn(columnName, values, statsContainer, chartsContainer) {
+            const categoryCounts = {};
+            values.forEach(val => {
+                categoryCounts[val] = (categoryCounts[val] || 0) + 1;
+            });
+            
+            const statCard = document.createElement('div');
+            statCard.id = `stats-${columnName}`;
+            statCard.className = 'stat-card';
+            statCard.innerHTML = `<h3>Análisis Categórico: ${columnName}</h3>`;
+            
+            const summaryStats = document.createElement('div');
+            const uniqueCategories = Object.keys(categoryCounts).length;
+            const sortedCategories = Object.entries(categoryCounts).sort((a, b) => b[1] - a[1]);
+            const mostCommonCategory = sortedCategories[0];
+            const leastCommonCategory = sortedCategories[sortedCategories.length - 1];
+            const entropy = calculateEntropy(Object.values(categoryCounts));
+            
+            summaryStats.innerHTML = `
+                <p>Total Registros: ${values.length}</p>
+                <p>Categorías Únicas: ${uniqueCategories}</p>
+                <p>Categoría Más Común: ${mostCommonCategory[0]} (${mostCommonCategory[1]} veces, ${((mostCommonCategory[1]/values.length)*100).toFixed(2)}%)</p>
+                <p>Categoría Menos Común: ${leastCommonCategory[0]} (${leastCommonCategory[1]} veces, ${((leastCommonCategory[1]/values.length)*100).toFixed(2)}%)</p>
+                <p>Entropía: ${entropy.toFixed(4)}</p>
+            `;
+            statCard.appendChild(summaryStats);
+
+            const categoriesContainer = document.createElement('div');
+            categoriesContainer.className = 'scrollable-content';
+            
+            sortedCategories.forEach(([category, count]) => {
+                const categoryEl = document.createElement('div');
+                categoryEl.className = 'categorical-summary';
+                categoryEl.innerHTML = `
+                    <span class="value">${category}</span>
+                    <span class="count">${count} (${((count/values.length)*100).toFixed(2)}%)</span>
+                `;
+                categoriesContainer.appendChild(categoryEl);
+            });
+            
+            statCard.appendChild(categoriesContainer);
+            statsContainer.appendChild(statCard);
+
+            // Gráfico de barras con todas las categorías
+            const chartCard = document.createElement('div');
+            chartCard.id = `chart-${columnName}`;
+            chartCard.className = 'chart-card';
+            
+            const canvas = document.createElement('canvas');
+            canvas.id = `chart-${columnName}-element`;
+            chartCard.appendChild(canvas);
+            chartsContainer.appendChild(chartCard);
+
+            const pageSize = 20;
+            let currentPage = 0;
+
+            function updateChart() {
+                const start = currentPage * pageSize;
+                const end = start + pageSize;
+                const pageData = sortedCategories.slice(start, end);
+
+                new Chart(canvas, {
+                    type: 'bar',
+                    data: {
+                        labels: pageData.map(([category]) => category),
+                        datasets: [{
+                            label: 'Frecuencia',
+                            data: pageData.map(([, count]) => count),
+                            backgroundColor: 'rgba(75, 192, 192, 0.8)',
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: { 
+                        responsive: true, 
+                        title: { display: true, text: `Distribución de Categorías en ${columnName}` },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Frecuencia'
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Categorías'
+                                },
+                                ticks: {
+                                    autoSkip: false,
+                                    maxRotation: 90,
+                                    minRotation: 90
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const value = context.parsed.y;
+                                        const total = values.length;
+                                        const percentage = ((value / total) * 100).toFixed(2);
+                                        return `Frecuencia: ${value} (${percentage}%)`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            updateChart();
+
+            // Agregar paginación si hay más de 20 categorías
+            if (sortedCategories.length > pageSize) {
+                const paginationContainer = document.createElement('div');
+                paginationContainer.className = 'pagination';
+                const prevButton = document.createElement('button');
+                prevButton.textContent = 'Anterior';
+                const nextButton = document.createElement('button');
+                nextButton.textContent = 'Siguiente';
+
+                prevButton.addEventListener('click', () => {
+                    if (currentPage > 0) {
+                        currentPage--;
+                        updateChart();
+                    }
+                });
+
+                nextButton.addEventListener('click', () => {
+                    if ((currentPage + 1) * pageSize < sortedCategories.length) {
+                        currentPage++;
+                        updateChart();
+                    }
+                });
+
+                paginationContainer.appendChild(prevButton);
+                paginationContainer.appendChild(nextButton);
+                chartCard.appendChild(paginationContainer);
+            }
+        }
+
+        // Funciones de utilidad
+        function calculateEntropy(counts) {
+            const total = counts.reduce((a, b) => a + b, 0);
+            return counts.reduce((entropy, count) => {
+                const p = count / total;
+                return entropy - (p * Math.log2(p));
+            }, 0);
+        }
+
+        function calculateMode(dates) {
+            const counts = {};
+            let maxCount = 0;
+            let mode;
+
+            dates.forEach(date => {
+                const dateString = date.toISOString().split('T')[0];
+                counts[dateString] = (counts[dateString] || 0) + 1;
+                if (counts[dateString] > maxCount) {
+                    maxCount = counts[dateString];
+                    mode = date;
+                }
+            });
+
+            return mode;
+        }
+
+        function calculateMedian(dates) {
+            const sortedDates = [...dates].sort((a, b) => a - b);
+            const mid = Math.floor(sortedDates.length / 2);
+            return sortedDates.length % 2 !== 0 ? sortedDates[mid] : new Date((sortedDates[mid - 1].getTime() + sortedDates[mid].getTime()) / 2);
+        }
+    </script>
+</body>
+</html>
